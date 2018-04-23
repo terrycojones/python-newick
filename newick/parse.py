@@ -107,8 +107,8 @@ class NewickParser(object):
 
         :param s: string to parse for a length.
         :param offset: a 0-based int index into s, indicating where to start parsing.
-        :return: a tuple of the float length to store on the node and the number of
-        characters consumed from s.
+        :return: a tuple of the float length (or None, if no length is present) to store
+        on the node and the number of characters consumed from s.
         """
         count = self._count_spaces(s, offset)
 
