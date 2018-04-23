@@ -107,8 +107,8 @@ class NewickParser(object):
 
         :param s: string to parse for a length.
         :param offset: a 0-based int index into s, indicating where to start parsing.
-        :return: a tuple of the length to store on the node and the number of characters
-        consumed from s.
+        :return: a tuple of the float length to store on the node and the number of
+        characters consumed from s.
         """
         count = self._count_spaces(s, offset)
 
@@ -134,7 +134,7 @@ class NewickParser(object):
                             digits.append(c)
                         else:
                             break
-                return ''.join(digits), count
+                return float(''.join(digits)), count
             else:
                 return None, count
 
