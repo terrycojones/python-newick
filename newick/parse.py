@@ -138,7 +138,7 @@ class NewickParser(object):
             else:
                 return None, count
 
-    def _parse_node(self, s, offset, strip_comments=False, **kw):
+    def _parse_node(self, s, offset):
         """Parse a Newick formatted string into a `Node` object.
 
         :param s: Newick formatted string to parse.
@@ -146,14 +146,13 @@ class NewickParser(object):
         :return: a tuple of the `Node` instance and the number of characters consumed from s.
         """
         count = self._count_spaces(s, offset)
-        node = Node(**kw)
+        node = Node()
 
         if s[offset + count] == '(':
             # The node has a list of descendents.
             count += 1
             while True:
-                child, subcount = self._parse(s, offset + count,
-                                              strip_comments=strip_comments, **kw)
+                child, subcount = self._parse(s, offset + count)
                 count += subcount
                 node.add_descendant(child)
 
