@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
-from setuptools import setup, find_packages
-
-
-requires = []
+from setuptools import setup
 
 
 def read(fname):
@@ -11,9 +8,26 @@ def read(fname):
     return content
 
 
+# Modified from http://stackoverflow.com/questions/2058802/
+# how-can-i-get-the-version-defined-in-setup-py-setuptools-in-my-package
+def version():
+    import os
+    import re
+
+    init = os.path.join('newick', '__init__.py')
+    with open(init) as fp:
+        initData = fp.read()
+    match = re.search(r"^__version__ = ['\"]([^'\"]+)['\"]",
+                      initData, re.M)
+    if match:
+        return match.group(1)
+    else:
+        raise RuntimeError('Unable to find version string in %r.' % init)
+
+
 setup(
     name='newick',
-    version="0.9.3.dev0",
+    version=version(),
     description='A python module to read and write the Newick format',
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
@@ -54,7 +68,6 @@ setup(
             'pytest-cov',
         ],
     },
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
+    packages=["newick"],
     include_package_data=True,
 )

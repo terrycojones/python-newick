@@ -335,7 +335,6 @@ def test_singletons():
 
 def test_comments():
     t = '[&R] (A,B)C [% ] [% ] [%  setBetweenBits = selected ];'
-    print(loads(t)[0].comment)
     with pytest.raises(ValueError):
         loads(t)
     tree = loads(t, strip_comments=True)[0]

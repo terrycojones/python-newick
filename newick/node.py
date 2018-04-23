@@ -1,25 +1,13 @@
 # coding: utf8
 """
-Functionality to read and write the Newick serialization format for trees.
+A node class to hold parsed information from the Newick serialization format for trees.
 
 .. seealso:: https://en.wikipedia.org/wiki/Newick_format
 """
+
 from __future__ import unicode_literals
-import io
+
 import re
-
-__version__ = "0.9.3.dev0"
-
-RESERVED_PUNCTUATION = ':;,()'
-COMMENT = re.compile('\[[^\]]*\]')
-
-
-def length_parser(x):
-    return float(x or 0.0)
-
-
-def length_formatter(x):
-    return '%s' % x
 
 
 class Node(object):
@@ -30,55 +18,18 @@ class Node(object):
     descendants. It further has an ancestor, which is *None* if the node is the
     root node of a tree.
     """
-    def __init__(self, name=None, length=None, **kw):
+    def __init__(self, name=None, length=None):
         """
         :param name: Node label.
         :param length: Branch length from the new node to its parent.
-        :param kw: Recognized keyword arguments:\
-            `length_parser`: Custom parser for the `length` attribute of a Node.\
-            `length_formatter`: Custom formatter for the branch length when formatting a\
-            Node as Newick string.
         """
-        for char in RESERVED_PUNCTUATION:
-            if (name and char in name) or (length and char in length):
-                raise ValueError(
-                    'Node names or branch lengths (%r) must not contain "%s"' % (name, char))
         self.name = name
-        self._length = length
+        self.length = length
         self.descendants = []
         self.ancestor = None
-        self._length_parser = kw.pop('length_parser', length_parser)
-        self._length_formatter = kw.pop('length_formatter', length_formatter)
 
     def __repr__(self):
         return 'Node("%s")' % self.name
-
-    @property
-    def length(self):
-        return self._length_parser(self._length)
-
-    @length.setter
-    def length(self, l):
-        if l is None:
-            self._length = l
-        else:
-            self._length = self._length_formatter(l)
-
-    @classmethod
-    def create(cls, name=None, length=None, descendants=None, **kw):
-        """
-        Create a new `Node` object.
-
-        :param name: Node label.
-        :param length: Branch length from the new node to its parent.
-        :param descendants: list of descendants or `None`.
-        :param kw: Additonal keyword arguments are passed through to `Node.__init__`.
-        :return: `Node` instance.
-        """
-        node = cls(name=name, length=length, **kw)
-        for descendant in descendants or []:
-            node.add_descendant(descendant)
-        return node
 
     def add_descendant(self, node):
         node.ancestor = self
@@ -325,7 +276,7 @@ class Node(object):
         a fully resolved binary tree.
         """
         def _resolve_polytomies(n):
-            new = Node(length=self._length_formatter(self._length_parser('0')))
+            new = Node(length=0)
             while len(n.descendants) > 1:
                 new.add_descendant(n.descendants.pop())
             n.descendants.append(new)
@@ -355,222 +306,3 @@ class Node(object):
         Set the length of all nodes in the subtree to None.
         """
         self.visit(lambda n: setattr(n, 'length', None))
-
-
-def loads(s, strip_comments=False, **kw):
-    """
-    Load a list of trees from a Newick formatted string.
-
-    :param s: Newick formatted string.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: List of Node objects.
-    """
-    kw['strip_comments'] = strip_comments
-    return [parse_node(ss.strip(), **kw) for ss in s.split(';') if ss.strip()]
-
-
-def dumps(trees):
-    """
-    Serialize a list of trees in Newick format.
-
-    :param trees: List of Node objects or a single Node object.
-    :return: Newick formatted string.
-    """
-    if isinstance(trees, Node):
-        trees = [trees]
-    return ';\n'.join([tree.newick for tree in trees]) + ';'
-
-
-def load(fp, strip_comments=False, **kw):
-    """
-    Load a list of trees from an open Newick formatted file.
-
-    :param fp: open file handle.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: List of Node objects.
-    """
-    kw['strip_comments'] = strip_comments
-    return loads(fp.read(), **kw)
-
-
-def dump(tree, fp):
-    fp.write(dumps(tree))
-
-
-def read(fname, encoding='utf8', strip_comments=False, **kw):
-    """
-    Load a list of trees from a Newick formatted file.
-
-    :param fname: file path.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: List of Node objects.
-    """
-    kw['strip_comments'] = strip_comments
-    with io.open(fname, encoding=encoding) as fp:
-        return load(fp, **kw)
-
-
-def write(tree, fname, encoding='utf8'):
-    with io.open(fname, encoding=encoding, mode='w') as fp:
-        dump(tree, fp)
-
-
-def _parse_name(s, offset, node):
-    count = _count_spaces(s, offset)
-    match = COMMENT.search(s, offset + count)
-    if match:
-        name = s[offset + count:match.start()]
-        node.comment = comment = match.group(0)
-        count = len(name) + len(comment)
-        name = name.strip()
-    else:
-        letters = []
-        count = 0
-        while True:
-            try:
-                c = s[offset + count]
-            except IndexError:
-                break
-            else:
-                if c in RESERVED_PUNCTUATION:
-                    break
-                else:
-                    letters.append(c)
-                    count += 1
-        name = ''.join(letters).strip() or None
-        node.comment = None
-
-    return name, count
-
-
-def _count_spaces(s, offset):
-    count = 0
-    while True:
-        try:
-            c = s[offset]
-        except IndexError:
-            return count
-        else:
-            if c.isspace():
-                offset += 1
-                count += 1
-            else:
-                return count
-
-
-def _parse_length(s, offset):
-    count = _count_spaces(s, offset)
-
-    try:
-        c = s[offset + count]
-    except IndexError:
-        return None, count
-    else:
-        if c == ':':
-            digits = []
-            seenDot = False
-            while True:
-                count += 1
-                try:
-                    c = s[offset + count]
-                except IndexError:
-                    break
-                else:
-                    if c.isdigit():
-                        digits.append(c)
-                    elif c == '.' and not seenDot:
-                        seenDot = True
-                        digits.append(c)
-                    else:
-                        break
-            return ''.join(digits), count
-        else:
-            return None, count
-
-
-def _parse_node(s, offset, strip_comments=False, **kw):
-    """
-    Parse a Newick formatted string into a `Node` object.
-
-    :param s: Newick formatted string to parse.
-    :param offset: a 0-based int index into s, indicating where to start parsing.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: `Node` instance.
-    """
-    count = _count_spaces(s, offset)
-    node = Node(**kw)
-
-    if s[offset + count] == '(':
-        # The node has a list of descendents.
-        count += 1
-        while True:
-            child, subcount = _parse_node(s, offset + count,
-                                          strip_comments=strip_comments, **kw)
-            count += subcount
-            node.add_descendant(child)
-
-            count += _count_spaces(s, offset + count)
-
-            try:
-                c = s[offset + count]
-            except IndexError:
-                break
-            else:
-                if c == ',':
-                    count += 1
-                    continue
-                elif c == ')':
-                    count += 1
-                    break
-                else:
-                    raise SyntaxError('In descendants, could not parse %r' %
-                                      s[offset + count:offset + count + 100])
-
-    name, subcount = _parse_name(s, offset + count, node)
-    count += subcount
-    length, subcount = _parse_length(s, offset + count)
-    count += subcount
-
-    node.name = name
-    node.length = length
-
-    return node, count
-
-
-def parse_node(s, strip_comments=False, **kw):
-    """
-    Parse a Newick formatted string into a `Node` object.
-
-    :param s: Newick formatted string to parse.
-    :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-    brackets.
-    :param kw: Keyword arguments are passed through to `Node.create`.
-    :return: `Node` instance.
-    """
-
-    node, count = _parse_node(s, 0, strip_comments=strip_comments, **kw)
-    count += _count_spaces(s, count)
-
-    try:
-        c = s[count]
-    except IndexError:
-        if count != len(s):
-            raise ValueError('Newick unexpected count!')
-    else:
-        if c == ';':
-            count += 1
-            count += _count_spaces(s, count)
-            if count != len(s):
-                print('%d chars unread from input: %r' % (len(s) - count, s[count:]))
-        else:
-            raise ValueError('Newick could not be parsed from %r.' % s[count:])
-
-    return node
