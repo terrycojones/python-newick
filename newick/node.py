@@ -18,13 +18,15 @@ class Node(object):
     descendants. It further has an ancestor, which is *None* if the node is the
     root node of a tree.
     """
-    def __init__(self, name=None, length=None):
+    def __init__(self, name=None, length=None, comment=None):
         """
         :param name: Node label.
         :param length: Branch length from the new node to its parent.
+        :param comment: The comment (usually in [..] in Newick) for the node.
         """
         self.name = name
         self.length = length
+        self.comment = comment
         self.descendants = []
         self.ancestor = None
 
@@ -35,6 +37,7 @@ class Node(object):
         node.ancestor = self
         self.descendants.append(node)
 
+    # This could instead just be __str__
     @property
     def newick(self):
         """The representation of the Node in Newick format."""

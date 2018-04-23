@@ -15,17 +15,25 @@ COMMENT = re.compile('\[[^\]]*\]')
 
 class TreeList(list):
     def dumps(self):
-        """
-        Serialize a list of trees in Newick format.
+        """Serialize the list of trees in Newick format to a string.
 
         :return: Newick formatted string.
         """
         return ';\n'.join([tree.newick for tree in self]) + ';'
 
     def dump(self, fp):
+        """Serialize the list of trees in Newick format to a file pointer.
+
+        :param fp: a file pointer.
+        """
         fp.write(self.dumps())
 
-    def write(self, tree, fname, encoding='utf8'):
+    def write(self, fname, encoding='utf8'):
+        """Serialize the list of trees in Newick format to a file.
+
+        :param fname: a file name.
+        :param encoding: the file encoding to use.
+        """
         with io.open(fname, encoding=encoding, mode='w') as fp:
             self.dump(fp)
 
@@ -36,6 +44,12 @@ class NewickParser(object):
 
     @staticmethod
     def _count_spaces(s, offset):
+        """Count leading whitespace in a string.
+
+        :param s: string to parse.
+        :param offset: a 0-based int index into s, indicating where to start parsing.
+        :return: the number of leading whitespace characters in s.
+        """
         count = 0
         while True:
             try:
@@ -50,6 +64,13 @@ class NewickParser(object):
                     return count
 
     def _parse_name(self, s, offset):
+        """Parse a node name.
+
+        :param s: string to parse for a name.
+        :param offset: a 0-based int index into s, indicating where to start parsing.
+        :return: a tuple of the name to store on the node and the number of characters
+        consumed from s.
+        """
         count = self._count_spaces(s, offset)
         letters = []
         count = 0
@@ -69,12 +90,26 @@ class NewickParser(object):
         return name, count
 
     def _parse_comment(self, s, offset):
+        """Parse a node comment.
+
+        :param s: string to parse for a comment.
+        :param offset: a 0-based int index into s, indicating where to start parsing.
+        :return: a tuple of the comment to store on the node and the number of characters
+        consumed from s.
+        """
         count = self._count_spaces(s, offset)
         match = COMMENT.search(s, offset + count)
         comment = match.group(0) if match else None
         return comment, count
 
     def _parse_length(self, s, offset):
+        """Parse a node length.
+
+        :param s: string to parse for a length.
+        :param offset: a 0-based int index into s, indicating where to start parsing.
+        :return: a tuple of the length to store on the node and the number of characters
+        consumed from s.
+        """
         count = self._count_spaces(s, offset)
 
         try:
@@ -104,15 +139,11 @@ class NewickParser(object):
                 return None, count
 
     def _parse_node(self, s, offset, strip_comments=False, **kw):
-        """
-        Parse a Newick formatted string into a `Node` object.
+        """Parse a Newick formatted string into a `Node` object.
 
         :param s: Newick formatted string to parse.
         :param offset: a 0-based int index into s, indicating where to start parsing.
-        :param strip_comments: Flag signaling whether to strip comments enclosed in square \
-        brackets.
-        :param kw: Keyword arguments are passed through to `Node.create`.
-        :return: `Node` instance.
+        :return: a tuple of the `Node` instance and the number of characters consumed from s.
         """
         count = self._count_spaces(s, offset)
         node = Node(**kw)
@@ -143,19 +174,19 @@ class NewickParser(object):
                         raise SyntaxError('In descendants, could not parse %r' %
                                           s[offset + count:offset + count + 100])
 
-        name, subcount = self._parse_name(s, offset + count, node)
-        count += subcount
-        length, subcount = self._parse_length(s, offset + count)
+        node.name, subcount = self._parse_name(s, offset + count)
         count += subcount
 
-        node.name = name
-        node.length = length
+        node.comment, subcount = self._parse_comment(s, offset + count)
+        count += subcount
+
+        node.length, subcount = self._parse_length(s, offset + count)
+        count += subcount
 
         return node, count
 
     def parse(self, s):
-        """
-        Parse a Newick formatted string into a `Node` object.
+        """Parse a Newick formatted string into a `Node` object.
 
         :param s: Newick formatted string to parse.
         :return: `Node` instance.
@@ -181,8 +212,7 @@ class NewickParser(object):
         return node
 
     def loads(self, s):
-        """
-        Load a list of trees from a Newick formatted string.
+        """Load a list of trees from a Newick formatted string.
 
         :param s: Newick formatted string.
         :return: A TreeList object.
@@ -191,8 +221,7 @@ class NewickParser(object):
                          for ss in s.split(';') if ss.strip()])
 
     def load(self, fp):
-        """
-        Load a list of trees from an open Newick formatted file.
+        """Load a list of trees from an open Newick formatted file.
 
         :param fp: open file handle.
         :return: A TreeList object.
@@ -200,8 +229,7 @@ class NewickParser(object):
         self.loads(fp.read())
 
     def read(self, fname, encoding='utf8'):
-        """
-        Load a list of trees from a Newick formatted file.
+        """Load a list of trees from a Newick formatted file.
 
         :param fname: file path.
         :param encoding: The encoding of the file contents.
